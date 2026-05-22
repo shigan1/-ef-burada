@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Akıllı Buzdolabı Şefi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --cream: #fdf6ec; --dark: #1a1209;
+            --amber: #e8923a; --amber-light: #f5b56a; --amber-dark: #c97320;
+            --text-muted: #8a7060; --border: rgba(236,220,200,0.14); --card-bg: rgba(232,146,58,0.06);
+        }
+        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--cream);min-height:100vh}
+        body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 20% 10%,rgba(232,146,58,.15) 0%,transparent 60%),radial-gradient(ellipse 55% 45% at 80% 85%,rgba(232,146,58,.10) 0%,transparent 55%);pointer-events:none;z-index:0}
+        .page{position:relative;z-index:1;max-width:1100px;margin:0 auto;padding:48px 24px 80px}
+        header{text-align:center;margin-bottom:48px;animation:fadeDown .7s ease both}
+        header h1{font-family:'Playfair Display',serif;font-size:clamp(2rem,4vw,3rem);font-weight:700;line-height:1.15}
+        header h1 em{font-style:italic;color:var(--amber)}
+        header p{margin-top:10px;font-size:15px;color:var(--text-muted);font-weight:300}
+        .upload-card{background:var(--card-bg);border:1px solid var(--border);border-radius:20px;padding:32px;margin-bottom:28px;animation:fadeUp .8s .1s ease both}
+        .upload-zone{border:2px dashed rgba(232,146,58,.35);border-radius:14px;padding:40px 24px;text-align:center;cursor:pointer;transition:all .25s;background:rgba(232,146,58,.03)}
+        .upload-zone:hover,.upload-zone.drag-over{border-color:var(--amber);background:rgba(232,146,58,.07);transform:translateY(-2px)}
+        .uz-icon{font-size:40px;display:block;margin-bottom:12px}
+        .upload-zone h3{font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:6px}
+        .upload-zone p{font-size:13px;color:var(--text-muted)}
+        #preview-wrap{display:none;margin-top:16px;border-radius:10px;overflow:hidden;position:relative}
+        #preview-wrap img{width:100%;max-height:220px;object-fit:cover;display:block}
+        .preview-tag{position:absolute;top:8px;right:8px;background:rgba(26,18,9,.75);border:1px solid rgba(232,146,58,.4);border-radius:6px;padding:3px 10px;font-size:12px;color:var(--amber-light)}
+        .diff-row{margin-top:22px}
+        .diff-row label{font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:10px}
+        .diff-btns{display:flex;gap:10px}
+        .diff-btn{flex:1;padding:10px 6px;text-align:center;background:rgba(253,246,236,.04);border:1px solid var(--border);border-radius:10px;color:#c8b8a4;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s}
+        .diff-btn:hover{border-color:rgba(232,146,58,.4);color:var(--cream)}
+        .diff-btn.active{background:rgba(232,146,58,.14);border-color:var(--amber);color:var(--amber-light)}
+        .di{display:block;font-size:18px;margin-bottom:3px}
+        .dn{display:block;font-weight:600}
+        .ds{display:block;font-size:11px;opacity:.6;margin-top:1px}
+        .btn-analyze{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:20px;padding:15px;background:linear-gradient(135deg,var(--amber),var(--amber-dark));color:#fff;border:none;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all .25s;box-shadow:0 4px 20px rgba(232,146,58,.3)}
+        .btn-analyze:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(232,146,58,.45)}
+        .btn-analyze:disabled{opacity:.6;cursor:not-allowed}
+        .loading-bar{height:3px;background:rgba(232,146,58,.15);border-radius:99px;overflow:hidden;display:none;margin-top:16px}
+        .loading-bar.on{display:block}
+        .loading-bar::after{content:'';display:block;height:100%;width:35%;background:linear-gradient(90deg,transparent,var(--amber),transparent);animation:shimmer 1.3s infinite}
+        #results{display:none;animation:fadeUp .5s ease both}
+        .ing-header{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+        .ing-header h2{font-family:'Playfair Display',serif;font-size:1.35rem;white-space:nowrap}
+        .ing-header::after{content:'';flex:1;height:1px;background:var(--border)}
+        .detected-chips{background:rgba(253,246,236,.03);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:36px}
+        .chip-grid{display:flex;flex-wrap:wrap;gap:7px}
+        .chip{background:rgba(253,246,236,.07);border:1px solid rgba(236,220,200,.18);border-radius:50px;padding:4px 12px;font-size:12px;color:#d4c4b0;display:flex;align-items:center;gap:5px}
+        .recipe-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;transition:grid-template-columns .5s ease}
+        .recipe-grid.one-selected{grid-template-columns:1fr 0fr}
+        .recipe-grid.one-selected.second-selected{grid-template-columns:0fr 1fr}
+        @media(max-width:680px){.recipe-grid{grid-template-columns:1fr}.recipe-grid.one-selected,.recipe-grid.one-selected.second-selected{grid-template-columns:1fr}}
+        .recipe-card{background:var(--card-bg);border:1px solid var(--border);border-radius:20px;overflow:hidden;animation:fadeUp .5s ease both;transition:border-color .4s,box-shadow .4s,opacity .4s,transform .4s,max-height .5s ease}
+        .recipe-card.hidden{opacity:0;pointer-events:none;transform:scale(.92) translateX(-12px)}
+        .recipe-grid.second-selected .recipe-card.hidden{transform:scale(.92) translateX(12px)}
+        .recipe-card.selected{border-color:var(--amber);box-shadow:0 0 0 2px rgba(232,146,58,.22),0 12px 40px rgba(232,146,58,.18);transform:scale(1.02)}
+        .recipe-card.selected .recipe-photo{height:280px}
+        .card-top{display:flex;justify-content:flex-end;padding:12px 14px 0}
+        .btn-sec{padding:6px 20px;font-size:12px;font-weight:600;font-family:'DM Sans',sans-serif;letter-spacing:.04em;border-radius:50px;cursor:pointer;transition:all .2s;border:1px solid rgba(232,146,58,.5);background:transparent;color:var(--amber-light)}
+        .btn-sec:hover{background:rgba(232,146,58,.12)}
+        .recipe-card.selected .btn-sec{background:var(--amber);color:#fff;border-color:var(--amber);pointer-events:none}
+        .recipe-photo{width:100%;height:200px;object-fit:cover;display:block;margin-top:10px;background:rgba(232,146,58,.06);transition:height .5s ease}
+        .recipe-body{padding:18px 20px 24px}
+        .recipe-title{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:700;color:var(--cream);margin-bottom:16px;line-height:1.3}
+        .sec-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;margin-top:18px}
+        .sec-label:first-child{margin-top:0}
+        .steps{display:flex;flex-direction:column;gap:10px}
+        .step{display:flex;gap:12px;align-items:flex-start}
+        .step-num{width:24px;height:24px;flex-shrink:0;border-radius:50%;border:2px solid var(--amber);color:var(--amber);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px}
+        .step-text{font-size:13px;line-height:1.65;color:#c8b8a4;padding-top:2px}
+        .step-text strong{color:var(--cream);font-weight:500}
+        @keyframes fadeDown{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:none}}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+        @keyframes shimmer{0%{transform:translateX(-200%)}100%{transform:translateX(350%)}}
+        footer{text-align:center;margin-top:56px;font-size:12px;color:rgba(138,112,96,.4)}
+        @media(max-width:520px){.upload-card{padding:20px 16px}.diff-btns{gap:6px}}
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <header>
+        <h1>Akıllı <em>Buzdolabı Şefi</em></h1>
+        <p>Buzdolabınızın fotoğrafını yükleyin, size özel tarifler hazırlayalım.</p>
+    </header>
+
+    <div class="upload-card">
+        <input type="file" id="fileInput" accept="image/*" style="display:none">
+        <div class="upload-zone" id="uploadZone" onclick="fileInput.click()">
+            <span class="uz-icon">📸</span>
+            <h3>Fotoğraf yükleyin</h3>
+            <p>Tıklayın veya sürükleyip bırakın &nbsp;·&nbsp; JPG, PNG, HEIC</p>
+        </div>
+        <div id="preview-wrap">
+            <img id="previewImg" src="" alt="Önizleme">
+            <span class="preview-tag">Seçildi ✓</span>
+        </div>
+        <div class="diff-row">
+            <label>Ne tür bir tarif istiyorsunuz?</label>
+            <div class="diff-btns">
+                <button class="diff-btn active" data-d="kolay" onclick="pickDiff(this)">
+                    <span class="di">🥗</span><span class="dn">Kolay</span><span class="ds">10–20 dk</span>
+                </button>
+                <button class="diff-btn" data-d="orta" onclick="pickDiff(this)">
+                    <span class="di">🍳</span><span class="dn">Orta</span><span class="ds">20–45 dk</span>
+                </button>
+                <button class="diff-btn" data-d="zor" onclick="pickDiff(this)">
+                    <span class="di">👨‍🍳</span><span class="dn">Şef Tarifi</span><span class="ds">45 dk+</span>
+                </button>
+            </div>
+        </div>
+        <button class="btn-analyze" id="analyzeBtn" onclick="analyze()">
+            <span>🍳</span> Tarif Oluştur
+        </button>
+        <div class="loading-bar" id="loadingBar"></div>
+    </div>
+
+    <div id="results">
+        <div class="ing-header"><h2>🛒 Dolaptaki Malzemeler</h2></div>
+        <div class="detected-chips"><div class="chip-grid" id="detectedGrid"></div></div>
+        <div class="recipe-grid" id="recipeGrid"></div>
+    </div>
+
+</div>
+<footer>© 2025 Akıllı Buzdolabı Şefi</footer>
+
+<script>
+const fileInput  = document.getElementById('fileInput');
+const uploadZone = document.getElementById('uploadZone');
+
+fileInput.addEventListener('change', () => {
+    if (!fileInput.files[0]) return;
+    document.getElementById('previewImg').src = URL.createObjectURL(fileInput.files[0]);
+    document.getElementById('preview-wrap').style.display = 'block';
+});
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+    e.preventDefault(); uploadZone.classList.remove('drag-over');
+    if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; fileInput.dispatchEvent(new Event('change')); }
+});
+
+let diff = 'kolay';
+function pickDiff(btn) {
+    document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); diff = btn.dataset.d;
+}
+
+const ICONS = {
+    et:'🥩',tavuk:'🍗',balık:'🐟',yumurta:'🥚',süt:'🥛',peynir:'🧀',
+    domates:'🍅',biber:'🫑',patlıcan:'🍆',avokado:'🥑',salata:'🥗',havuç:'🥕',
+    limon:'🍋',soğan:'🧅',sarımsak:'🧄',patates:'🥔',portakal:'🍊',elma:'🍎',
+    ekmek:'🍞',pirinç:'🍚',makarna:'🍝',un:'🌾',yağ:'🫙',zeytinyağı:'🫒',
+    tereyağ:'🧈',tuz:'🧂',baharat:'🌶️',brokoli:'🥦',marul:'🥬',mantar:'🍄',
+    default:'🌿'
+};
+function icon(n) {
+    const l = n.toLowerCase();
+    for (const [k,v] of Object.entries(ICONS)) if (l.includes(k)) return v;
+    return ICONS.default;
+}
+
+
+
+
+function resetUI() {
+    const grid = document.getElementById('recipeGrid');
+    grid.innerHTML = '';
+    grid.classList.remove('one-selected', 'second-selected');
+    document.getElementById('detectedGrid').innerHTML = '';
+    document.getElementById('results').style.display = 'none';
+}
+
+async function loadAIImages() {
+    const images = document.querySelectorAll('.ai-image');
+    
+    for (let img of images) {
+        const prompt = img.getAttribute('data-prompt');
+        if (!prompt) continue;
+
+        const aiUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=500&nologo=true&seed=${Math.floor(Math.random()*10000)}`;
+
+        await new Promise((resolve) => {
+            const tempImg = new Image();
+            let isDone = false;
+
+            const finish = () => {
+                if (isDone) return;
+                isDone = true;
+                resolve();
+            };
+
+            tempImg.onload = () => {
+                img.src = aiUrl;
+                finish();
+            };
+
+            tempImg.onerror = finish;
+            tempImg.src = aiUrl;
+
+            setTimeout(finish, 4000);
+        });
+        
+        await new Promise(r => setTimeout(r, 1000));
+    }
+}
+
+function renderResults(data) {
+    resetUI();
+    const rGrid = document.getElementById('recipeGrid');
+    const dGrid = document.getElementById('detectedGrid');
+
+    (data.dolaptaki_malzemeler || []).forEach(m => {
+        dGrid.innerHTML += `<span class="chip">${icon(m)} ${m}</span>`;
+    });
+
+    (data.tarifler || []).forEach((tarif, idx) => {
+        const ingHTML = (tarif.malzemeler || []).length
+            ? `<div class="sec-label">🛒 Gerekli Malzemeler</div>
+               <div class="chip-grid">${tarif.malzemeler.map(m => `<span class="chip">${icon(m)} ${m}</span>`).join('')}</div>`
+            : '';
+
+        const stepsHTML = (tarif.adimlar || []).length
+            ? `<div class="sec-label">📋 Tarif</div>
+               <div class="steps">${tarif.adimlar.map((s, i) =>
+                   `<div class="step">
+                       <div class="step-num">${i + 1}</div>
+                       <div class="step-text">${s}</div>
+                   </div>`).join('')}</div>`
+            : '';
+
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        card.style.animationDelay = `${idx * 0.12}s`;
+        card.innerHTML = `
+            <div class="card-top">
+                <button class="btn-sec" onclick="selectCard(this.closest('.recipe-card'))">Seç</button>
+            </div>
+            <img src="https://images.unsplash.com/photo-1495195134817-a1a2807f9c61?w=800&q=80" class="ai-image recipe-photo" data-prompt="${tarif.ingilizce_gorsel_kelimesi}" alt="Tarif Görseli">
+            <div class="recipe-body">
+                <div class="recipe-title">${tarif.baslik}</div>
+                ${ingHTML}
+                ${stepsHTML}
+            </div>`;
+
+        rGrid.appendChild(card);
+    });
+
+    loadAIImages();
+
+    document.getElementById('results').style.display = 'block';
+    document.querySelector('.ing-header').style.display = dGrid.innerHTML ? 'flex' : 'none';
+    document.querySelector('.detected-chips').style.display = dGrid.innerHTML ? 'block' : 'none';
+}
+
+function selectCard(card) {
+    const grid = document.getElementById('recipeGrid');
+    const cards = [...document.querySelectorAll('.recipe-card')];
+    const idx = cards.indexOf(card);
+
+    // Reset all
+    cards.forEach(c => {
+        c.classList.remove('selected', 'hidden');
+        c.querySelector('.btn-sec').textContent = 'Seç';
+    });
+    grid.classList.remove('one-selected', 'second-selected');
+
+    // Select clicked card
+    card.classList.add('selected');
+    card.querySelector('.btn-sec').textContent = 'Seçildi ✓';
+
+    // Hide the other card
+    const other = cards.find(c => c !== card);
+    if (other) {
+        other.classList.add('hidden');
+        grid.classList.add('one-selected');
+        if (idx === 1) grid.classList.add('second-selected');
+    }
+}
+
+async function analyze() {
+    if (!fileInput.files.length) { alert('Lütfen önce bir fotoğraf seçin!'); return; }
+    const btn = document.getElementById('analyzeBtn');
+    const bar = document.getElementById('loadingBar');
+    btn.disabled = true; btn.innerHTML = '<span>⏳</span> Şef inceliyor...';
+    bar.classList.add('on');
+    resetUI();
+
+    const fd = new FormData();
+    fd.append('resim', fileInput.files[0]);
+    fd.append('zorluk', diff);
+
+    try {
+        const res = await fetch('http://localhost:8000/tarif-al', { method: 'POST', body: fd });
+        const data = await res.json();
+
+        if (data.hata) {
+            alert('Sunucu hatası: ' + data.hata);
+            return;
+        }
+
+        if (!data.tarifler || data.tarifler.length === 0) {
+            alert('Hiç tarif bulunamadı. Lütfen tekrar deneyin.');
+            return;
+        }
+
+        renderResults(data);
+    } catch (err) {
+        alert('Bağlantı hatası. Sunucunun çalıştığından emin olun.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span>🍳</span> Yeniden Dene';
+        bar.classList.remove('on');
+    }
+}
+</script>
+</body>
+</html>
